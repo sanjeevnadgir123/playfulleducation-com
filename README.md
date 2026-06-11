@@ -32,7 +32,7 @@ To get EduPlay Adventures up and running locally, follow these steps:
 
 1.  **Clone the repository:**
     ```bash
-    git clone https://github.com/GeminalSudhanva/CODE-BHARAT-2025-CY37.git
+    git clone https://github.com/sanjeevnadgir123/playfulleducation-com.git
     cd CODE-BHARAT-2025-CY37
     ```
 
