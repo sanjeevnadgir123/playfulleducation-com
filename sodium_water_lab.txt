@@ -1,0 +1,349 @@
+import React, { useState, useEffect } from 'react';
+import { Droplets, Sparkles, AlertCircle, CheckCircle, Volume2, VolumeX } from 'lucide-react';
+
+export default function SodiumWaterLab() {
+  const [sodiumPlaced, setSodiumPlaced] = useState(false);
+  const [reactionStarted, setReactionStarted] = useState(false);
+  const [showSparks, setShowSparks] = useState(false);
+  const [showBubbles, setShowBubbles] = useState(false);
+  const [sodiumPosition, setSodiumPosition] = useState({ x: 50, y: 20 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  const speak = (text) => {
+    if (!voiceEnabled || isSpeaking) return;
+    
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const startReaction = () => {
+    if (!sodiumPlaced) return;
+    
+    setReactionStarted(true);
+    
+    speak("Starting the sodium and water reaction. Watch carefully as the sodium reacts vigorously with water.");
+    
+    setShowSparks(true);
+    
+    // Sparks for 2 seconds
+    setTimeout(() => {
+      setShowSparks(false);
+      speak("Notice the bright yellow sparks! This is the intense heat being released from the exothermic reaction.");
+    }, 500);
+    
+    // Bubbles for 3 seconds
+    setShowBubbles(true);
+    setTimeout(() => {
+      speak("Observe the light blue bubbles rising. These bubbles are hydrogen gas, H 2, being produced. Hydrogen is highly flammable!");
+    }, 2000);
+    
+    setTimeout(() => setShowBubbles(false), 5000);
+    
+    // Sodium movement animation
+    animateSodium();
+    
+    setTimeout(() => {
+      speak("See how the sodium floats and moves rapidly on the water surface? This movement is caused by the hydrogen gas pushing the sodium around.");
+    }, 3000);
+    
+    // Show success after reaction completes
+    setTimeout(() => {
+      setShowSuccess(true);
+      speak("Reaction complete! The chemical equation is: 2 sodium plus 2 water produces 2 sodium hydroxide plus hydrogen gas. Sodium hydroxide, N a O H, is a strong base. This reaction demonstrates that alkali metals like sodium are highly reactive with water. Remember, this reaction releases hydrogen gas, which is flammable, and produces heat. Never try this experiment at home without proper safety equipment!");
+    }, 5500);
+  };
+
+  const animateSodium = () => {
+    let frame = 0;
+    const interval = setInterval(() => {
+      frame++;
+      setSodiumPosition(prev => ({
+        x: 50 + Math.sin(frame * 0.2) * 15,
+        y: 45 + Math.cos(frame * 0.3) * 5
+      }));
+      
+      if (frame > 50) clearInterval(interval);
+    }, 50);
+  };
+
+  const handleMouseDown = (e) => {
+    if (reactionStarted) return;
+    
+    if (!isDragging) {
+      speak("You've picked up the sodium metal. Drag it into the water container below to begin the experiment.");
+    }
+    
+    setIsDragging(true);
+    const rect = e.currentTarget.getBoundingClientRect();
+    setDragOffset({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging || reactionStarted) return;
+    
+    const container = document.getElementById('lab-container');
+    const rect = container.getBoundingClientRect();
+    
+    const x = ((e.clientX - rect.left - dragOffset.x) / rect.width) * 100;
+    const y = ((e.clientY - rect.top - dragOffset.y) / rect.height) * 100;
+    
+    setSodiumPosition({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+    
+    // Check if dropped in water container (bottom half)
+    if (y > 40 && !sodiumPlaced) {
+      setSodiumPlaced(true);
+      speak("Great! You've placed the sodium into the water. Now click the Start Reaction button to observe what happens when sodium metal comes into contact with water.");
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const toggleVoice = () => {
+    setVoiceEnabled(!voiceEnabled);
+    window.speechSynthesis.cancel();
+    setIsSpeaking(false);
+  };
+
+  useEffect(() => {
+    // Welcome message
+    setTimeout(() => {
+      speak("Welcome to the Sodium and Water virtual lab! In this experiment, you'll explore what happens when sodium metal reacts with water. This is a highly reactive and exothermic reaction. Start by dragging the sodium piece into the water container.");
+    }, 1000);
+
+    return () => {
+      window.speechSynthesis.cancel();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging]);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-2">
+          <h1 className="text-4xl font-bold text-gray-800 text-center flex-1">
+            🧪 Sodium + Water Experiment
+          </h1>
+          <button
+            onClick={toggleVoice}
+            className={`p-3 rounded-full shadow-lg transition-all ${
+              voiceEnabled 
+                ? 'bg-green-500 hover:bg-green-600 text-white' 
+                : 'bg-gray-400 hover:bg-gray-500 text-white'
+            }`}
+            title={voiceEnabled ? "Voice ON - Click to mute" : "Voice OFF - Click to enable"}
+          >
+            {voiceEnabled ? <Volume2 size={24} /> : <VolumeX size={24} />}
+          </button>
+        </div>
+        <p className="text-gray-600 text-center mb-8">Drag the sodium into the water and start the reaction!</p>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main Lab Area */}
+          <div className="lg:col-span-2 bg-white rounded-2xl shadow-2xl p-6">
+            <div 
+              id="lab-container"
+              className="relative w-full h-96 bg-gradient-to-b from-sky-100 to-sky-50 rounded-xl border-4 border-gray-300 overflow-hidden"
+            >
+              {/* Water Container */}
+              <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-blue-400 to-blue-300 rounded-b-xl border-t-4 border-blue-500">
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-blue-700 font-semibold">
+                  💧 Water (H₂O)
+                </div>
+                
+                {/* Bubbles */}
+                {showBubbles && (
+                  <div className="absolute inset-0">
+                    {[...Array(20)].map((_, i) => (
+                      <div
+                        key={i}
+                        className="absolute w-4 h-4 bg-blue-200 rounded-full opacity-60 animate-ping"
+                        style={{
+                          left: `${Math.random() * 100}%`,
+                          bottom: `${Math.random() * 50}%`,
+                          animationDelay: `${Math.random() * 2}s`,
+                          animationDuration: `${1 + Math.random()}s`
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Sodium Piece */}
+              <div
+                className={`absolute w-16 h-16 bg-gradient-to-br from-gray-300 to-gray-400 rounded-lg shadow-lg flex items-center justify-center text-3xl cursor-move transition-transform ${
+                  isDragging ? 'scale-110' : 'scale-100'
+                } ${reactionStarted ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'}`}
+                style={{
+                  left: `${sodiumPosition.x}%`,
+                  top: `${sodiumPosition.y}%`,
+                  transform: 'translate(-50%, -50%)'
+                }}
+                onMouseDown={handleMouseDown}
+              >
+                🧂
+                <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 text-xs font-semibold text-gray-700 whitespace-nowrap">
+                  Sodium (Na)
+                </div>
+              </div>
+
+              {/* Sparks Effect */}
+              {showSparks && (
+                <div className="absolute inset-0 pointer-events-none">
+                  {[...Array(15)].map((_, i) => (
+                    <Sparkles
+                      key={i}
+                      className="absolute text-yellow-400 animate-pulse"
+                      size={24}
+                      style={{
+                        left: `${45 + Math.random() * 20}%`,
+                        top: `${40 + Math.random() * 20}%`,
+                        animationDelay: `${Math.random() * 0.5}s`
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Drop Zone Indicator */}
+              {!sodiumPlaced && (
+                <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-blue-600 text-sm font-medium bg-blue-100 px-4 py-2 rounded-full animate-bounce">
+                  Drop sodium here ↓
+                </div>
+              )}
+
+              {/* Speaking Indicator */}
+              {isSpeaking && (
+                <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-2 rounded-full flex items-center gap-2 animate-pulse">
+                  <Volume2 size={16} />
+                  <span className="text-sm font-medium">Speaking...</span>
+                </div>
+              )}
+            </div>
+
+            {/* Controls */}
+            <div className="mt-6 flex justify-center gap-4">
+              <button
+                onClick={startReaction}
+                disabled={!sodiumPlaced || reactionStarted}
+                className={`px-8 py-3 rounded-xl font-bold text-white shadow-lg transform transition-all ${
+                  sodiumPlaced && !reactionStarted
+                    ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:scale-105 hover:shadow-xl'
+                    : 'bg-gray-400 cursor-not-allowed opacity-50'
+                }`}
+              >
+                {reactionStarted ? '⚗️ Reaction in Progress...' : '▶️ Start Reaction'}
+              </button>
+            </div>
+
+            {/* Feedback */}
+            {reactionStarted && !showSuccess && (
+              <div className="mt-4 bg-yellow-100 border-l-4 border-yellow-500 p-4 rounded-lg">
+                <p className="text-yellow-800 font-medium flex items-center gap-2">
+                  <AlertCircle size={20} />
+                  Observe the reaction carefully! Hydrogen gas is released.
+                </p>
+              </div>
+            )}
+
+            {/* Success Message */}
+            {showSuccess && (
+              <div className="mt-4 bg-green-100 border-l-4 border-green-500 p-4 rounded-lg animate-pulse">
+                <p className="text-green-800 font-bold flex items-center gap-2">
+                  <CheckCircle size={20} />
+                  Reaction Complete! Sodium reacted with water producing hydrogen gas and sodium hydroxide.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Info Panel */}
+          <div className="space-y-6">
+            {/* Chemical Equation */}
+            <div className="bg-white rounded-2xl shadow-xl p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                📝 Chemical Equation
+              </h3>
+              <div className="bg-gradient-to-r from-purple-100 to-pink-100 p-4 rounded-xl">
+                <p className="text-xl font-mono text-center text-gray-800">
+                  2Na + 2H₂O → 2NaOH + H₂ ↑
+                </p>
+              </div>
+            </div>
+
+            {/* Learning Points */}
+            <div className="bg-white rounded-2xl shadow-xl p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                💡 Learning Points
+              </h3>
+              <ul className="space-y-3">
+                <li className="flex items-start gap-2">
+                  <span className="text-green-500 font-bold">✓</span>
+                  <span className="text-gray-700">Sodium reacts vigorously with water</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-green-500 font-bold">✓</span>
+                  <span className="text-gray-700">Hydrogen gas (H₂) is released</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-green-500 font-bold">✓</span>
+                  <span className="text-gray-700">Sodium hydroxide (NaOH) forms as a strong base</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Observations */}
+            <div className="bg-white rounded-2xl shadow-xl p-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-3 flex items-center gap-2">
+                👁️ Expected Observations
+              </h3>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-gray-700">
+                  <Sparkles className="text-yellow-500" size={20} />
+                  <span>Yellow sparks (2s)</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-700">
+                  <Droplets className="text-blue-500" size={20} />
+                  <span>Light blue bubbles (3s)</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-700">
+                  <span>🔄</span>
+                  <span>Sodium floats and moves</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

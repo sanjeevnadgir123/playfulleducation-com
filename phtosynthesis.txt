@@ -1,0 +1,410 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Volume2, VolumeX, RotateCcw, Sparkles } from 'lucide-react';
+
+type SlotType = 'sunlight' | 'water' | 'co2';
+
+interface Ingredient {
+  id: string;
+  emoji: string;
+  type: SlotType;
+  label: string;
+}
+
+interface GameState {
+  sunlight: boolean;
+  water: boolean;
+  co2: boolean;
+}
+
+const PhotosynthesisLab: React.FC = () => {
+  const [state, setState] = useState<GameState>({
+    sunlight: false,
+    water: false,
+    co2: false
+  });
+  const [draggedItem, setDraggedItem] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+  const [status, setStatus] = useState('');
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
+  const [hoveredSlot, setHoveredSlot] = useState<string | null>(null);
+  const bubblesRef = useRef<HTMLDivElement>(null);
+
+  const ingredients: Ingredient[] = [
+    { id: '1', emoji: '☀', type: 'sunlight', label: 'Sunlight' },
+    { id: '2', emoji: '💧', type: 'water', label: 'Water' },
+    { id: '3', emoji: '🌫', type: 'co2', label: 'Carbon Dioxide' }
+  ];
+
+  const speak = (text: string) => {
+    if (!voiceEnabled || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9;
+    utterance.pitch = 1.1;
+    window.speechSynthesis.speak(utterance);
+  };
+
+  useEffect(() => {
+    speak('Welcome to the Photosynthesis Lab! Drag the sunlight, water, and carbon dioxide to their correct slots to start the process.');
+  }, []);
+
+  const handleDragStart = (e: React.DragEvent, ingredient: Ingredient) => {
+    if (state[ingredient.type]) return;
+    setDraggedItem(ingredient.id);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setHoveredSlot(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, slotType: SlotType) => {
+    e.preventDefault();
+    const ingredient = ingredients.find(i => i.id === draggedItem);
+    if (ingredient && ingredient.type === slotType && !state[slotType]) {
+      setHoveredSlot(slotType);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setHoveredSlot(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, slotType: SlotType) => {
+    e.preventDefault();
+    setHoveredSlot(null);
+    
+    const ingredient = ingredients.find(i => i.id === draggedItem);
+    if (ingredient && ingredient.type === slotType && !state[slotType]) {
+      setState(prev => ({ ...prev, [slotType]: true }));
+      setStatus(✓ ${ingredient.label} added!);
+      speak(Great! ${ingredient.label} added successfully.);
+      
+      setTimeout(() => {
+        const allFilled = Object.values({ ...state, [slotType]: true }).every(v => v);
+        if (!allFilled) {
+          setStatus('');
+        }
+      }, 2000);
+    }
+  };
+
+  const allFilled = state.sunlight && state.water && state.co2;
+
+  const explainPhotosynthesis = () => {
+    const explanation = `
+      Let me explain the photosynthesis process in detail.
+      
+      First, the word equation. Carbon dioxide plus water, produces glucose and oxygen.
+      
+      Now the chemical equation. Six molecules of carbon dioxide, plus six molecules of water, 
+      with sunlight energy and chlorophyll, produces one molecule of glucose, and six molecules of oxygen.
+      
+      Here's how it works step by step.
+      
+      Step 1: Plants take in carbon dioxide from the air through tiny holes in their leaves called stomata.
+      
+      Step 2: The roots absorb water from the soil and transport it up to the leaves.
+      
+      Step 3: When sunlight hits the chlorophyll, the green pigment in the leaves, 
+      it provides the energy needed to combine carbon dioxide and water.
+      
+      Step 4: This process produces glucose, which is a type of sugar that the plant uses as food and energy to grow.
+      
+      Step 5: As a byproduct, oxygen is released into the air. This is the oxygen that we breathe!
+      
+      Without photosynthesis, there would be no oxygen in our atmosphere, and life as we know it wouldn't exist.
+      Plants are literally keeping us alive by producing the oxygen we need every single day.
+    `;
+    
+    speak(explanation);
+  };
+
+  const startPhotosynthesis = () => {
+    if (!allFilled || isProcessing) return;
+    
+    setIsProcessing(true);
+    setShowInfo(false);
+    setStatus('🌟 Photosynthesis in progress!');
+    speak('Starting photosynthesis! Watch as the plant uses sunlight, water, and carbon dioxide to produce glucose and oxygen.');
+
+    // Create bubbles
+    if (bubblesRef.current) {
+      for (let i = 0; i < 25; i++) {
+        setTimeout(() => {
+          const bubble = document.createElement('div');
+          bubble.className = 'absolute text-4xl animate-float pointer-events-none';
+          bubble.textContent = i % 2 === 0 ? '💨' : '✨';
+          bubble.style.left = ${45 + Math.random() * 10}%;
+          bubble.style.top = '40%';
+          bubble.style.setProperty('--drift', ${(Math.random() - 0.5) * 200}px);
+          bubblesRef.current?.appendChild(bubble);
+          
+          setTimeout(() => bubble.remove(), 3000);
+        }, i * 120);
+      }
+    }
+
+    setTimeout(() => {
+      setIsProcessing(false);
+      setStatus('✨ Success! Oxygen and glucose produced!');
+      setShowInfo(true);
+      speak('Photosynthesis complete! The plant has produced glucose for energy and released oxygen into the air.');
+      
+      // Start detailed explanation after a brief pause
+      setTimeout(() => {
+        explainPhotosynthesis();
+      }, 2000);
+    }, 3500);
+  };
+
+  const resetGame = () => {
+    setState({ sunlight: false, water: false, co2: false });
+    setShowInfo(false);
+    setStatus('');
+    setIsProcessing(false);
+    speak('Game reset. Try placing the ingredients again!');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    if (allFilled && !isProcessing) {
+      setStatus('✅ Perfect! All ingredients ready. Click Start!');
+      speak('All ingredients are in place. Click the start button to begin photosynthesis.');
+    }
+  }, [allFilled, isProcessing]);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-sky-300 via-emerald-200 to-green-300 py-8 px-4">
+      <style>{`
+        @keyframes glow {
+          0%, 100% { transform: scale(1); filter: drop-shadow(0 0 20px #22c55e); }
+          50% { transform: scale(1.05); filter: drop-shadow(0 0 40px #10b981); }
+        }
+        .glowing {
+          animation: glow 1s infinite;
+        }
+        @keyframes float {
+          0% {
+            opacity: 1;
+            transform: translateY(0) translateX(0);
+          }
+          100% {
+            opacity: 0;
+            transform: translateY(-100vh) translateX(var(--drift));
+          }
+        }
+        .animate-float {
+          animation: float 3s ease-out forwards;
+        }
+        @keyframes slideUp {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .slide-up {
+          animation: slideUp 0.6s ease-out;
+        }
+      `}</style>
+
+      <div className="max-w-6xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-8 relative">
+          <h1 className="text-6xl font-bold text-green-900 mb-2 drop-shadow-lg">
+            🌿 Photosynthesis Lab
+          </h1>
+          <p className="text-xl text-green-800 font-medium">Interactive Learning Experience</p>
+          
+          <button
+            onClick={() => {
+              setVoiceEnabled(!voiceEnabled);
+              if (!voiceEnabled) speak('Voice assistance enabled');
+            }}
+            className="absolute top-0 right-0 p-3 bg-white rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-110"
+          >
+            {voiceEnabled ? <Volume2 className="w-6 h-6 text-green-600" /> : <VolumeX className="w-6 h-6 text-gray-400" />}
+          </button>
+        </div>
+
+        {/* Main Game Area */}
+        <div className="bg-white/90 backdrop-blur rounded-3xl shadow-2xl p-8 mb-8">
+          {/* Slots */}
+          <div className="flex justify-center gap-12 mb-12">
+            {ingredients.map((ingredient) => (
+              <div key={ingredient.type} className="flex flex-col items-center gap-4">
+                <div className="text-lg font-bold text-green-800 bg-white px-6 py-2 rounded-full shadow-md">
+                  {ingredient.label}
+                </div>
+                <div
+                  onDragOver={(e) => handleDragOver(e, ingredient.type)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, ingredient.type)}
+                  className={`w-24 h-24 rounded-full flex items-center justify-center text-5xl transition-all duration-300 ${
+                    state[ingredient.type]
+                      ? 'border-4 border-green-500 bg-green-100 shadow-lg'
+                      : hoveredSlot === ingredient.type
+                      ? 'border-4 border-green-400 bg-green-50 scale-110 shadow-xl'
+                      : 'border-4 border-dashed border-gray-400 bg-gray-50'
+                  }`}
+                >
+                  {state[ingredient.type] ? ingredient.emoji : ''}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Plant */}
+          <div className={relative w-72 h-80 mx-auto my-12 transition-all duration-300 ${isProcessing ? 'glowing' : ''}}>
+            {/* Tree structure */}
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-12 h-32 bg-gradient-to-b from-amber-700 to-amber-900 rounded-t-lg" />
+            
+            {/* Leaves - enhanced with better gradients */}
+            {[
+              { w: 48, h: 48, t: 5, l: '50%', tx: '-50%', grad: 'from-green-400 to-green-600' },
+              { w: 44, h: 44, t: 10, l: 6, grad: 'from-green-300 to-green-500' },
+              { w: 44, h: 44, t: 10, r: 6, grad: 'from-green-300 to-green-500' },
+              { w: 40, h: 40, t: 0, l: '50%', tx: '-50%', grad: 'from-lime-400 to-green-600' },
+              { w: 36, h: 36, t: 24, l: 8, grad: 'from-green-400 to-emerald-600' },
+              { w: 36, h: 36, t: 24, r: 8, grad: 'from-green-400 to-emerald-600' },
+              { w: 32, h: 32, t: 36, l: '50%', tx: '-50%', grad: 'from-lime-300 to-green-500' },
+            ].map((leaf, i) => (
+              <div
+                key={i}
+                className={absolute rounded-full bg-gradient-to-br ${leaf.grad} shadow-lg}
+                style={{
+                  width: ${leaf.w * 4}px,
+                  height: ${leaf.h * 4}px,
+                  top: ${leaf.t * 4}px,
+                  left: leaf.l !== undefined ? (typeof leaf.l === 'string' ? leaf.l : ${leaf.l * 4}px) : 'auto',
+                  right: leaf.r !== undefined ? ${leaf.r * 4}px : 'auto',
+                  transform: leaf.tx || 'none',
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Ingredients to drag */}
+          <div className="flex justify-center gap-8 mb-8">
+            {ingredients.map((ingredient) => (
+              <div
+                key={ingredient.id}
+                draggable={!state[ingredient.type]}
+                onDragStart={(e) => handleDragStart(e, ingredient)}
+                onDragEnd={handleDragEnd}
+                className={`w-24 h-24 rounded-2xl flex items-center justify-center text-6xl transition-all duration-300 ${
+                  state[ingredient.type]
+                    ? 'bg-gray-200 border-4 border-gray-300 opacity-40 cursor-not-allowed'
+                    : 'bg-white border-4 border-gray-300 shadow-lg hover:shadow-2xl hover:scale-110 cursor-grab active:cursor-grabbing active:scale-95'
+                } ${draggedItem === ingredient.id ? 'opacity-50' : ''}`}
+              >
+                {ingredient.emoji}
+              </div>
+            ))}
+          </div>
+
+          {/* Start Button */}
+          <button
+            onClick={startPhotosynthesis}
+            disabled={!allFilled || isProcessing}
+            className={`block mx-auto px-12 py-4 text-2xl font-bold rounded-2xl transition-all duration-300 ${
+              allFilled && !isProcessing
+                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            {isProcessing ? (
+              <span className="flex items-center gap-3">
+                <Sparkles className="w-7 h-7 animate-spin" />
+                Processing...
+              </span>
+            ) : (
+              '🌱 Start Photosynthesis'
+            )}
+          </button>
+
+          {/* Status */}
+          {status && (
+            <div className="text-center mt-6 text-xl font-bold text-green-700 slide-up">
+              {status}
+            </div>
+          )}
+        </div>
+
+        {/* Info Panel */}
+        {showInfo && (
+          <div className="bg-white rounded-3xl shadow-2xl p-10 slide-up">
+            <h2 className="text-4xl font-bold text-green-900 text-center mb-8">
+              🌟 Photosynthesis Complete!
+            </h2>
+
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-2xl font-bold text-green-800 mb-3">Word Equation</h3>
+                <div className="bg-green-50 border-l-4 border-green-500 p-6 rounded-lg">
+                  <p className="text-xl font-semibold text-green-900 text-center">
+                    Carbon dioxide + Water → Glucose + Oxygen
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-2xl font-bold text-green-800 mb-3">Chemical Equation</h3>
+                <div className="bg-blue-50 border-l-4 border-blue-500 p-6 rounded-lg">
+                  <p className="text-xl font-mono text-blue-900 text-center">
+                    6 CO₂ + 6 H₂O →<sup className="text-sm">sunlight + chlorophyll</sup> C₆H₁₂O₆ + 6 O₂
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-2xl font-bold text-green-800 mb-4">How It Works</h3>
+                <div className="space-y-4">
+                  {[
+                    { icon: '🌫', text: 'Plants take in carbon dioxide (CO₂) from the air through tiny holes in leaves called stomata' },
+                    { icon: '💧', text: 'Roots absorb water (H₂O) from the soil and transport it to the leaves' },
+                    { icon: '☀', text: 'With sunlight energy and chlorophyll (green pigment), plants produce:' },
+                    { icon: '🍬', text: 'Glucose (C₆H₁₂O₆) — food and energy for the plant to grow', indent: true },
+                    { icon: '💨', text: 'Oxygen (O₂) — released into the air for us to breathe!', indent: true }
+                  ].map((item, i) => (
+                    <div key={i} className={flex items-start gap-4 text-lg ${item.indent ? 'ml-12' : ''}}>
+                      <span className="text-3xl">{item.icon}</span>
+                      <p className="flex-1 leading-relaxed">{item.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                onClick={resetGame}
+                className="flex items-center gap-3 mx-auto px-10 py-4 text-xl font-bold bg-gradient-to-r from-blue-500 to-cyan-600 text-white rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300"
+              >
+                <RotateCcw className="w-6 h-6" />
+                Try Again
+              </button>
+
+              <button
+                onClick={explainPhotosynthesis}
+                className="flex items-center gap-3 mx-auto mt-4 px-10 py-4 text-xl font-bold bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-2xl shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-300"
+              >
+                <Volume2 className="w-6 h-6" />
+                Hear Full Explanation
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Bubbles Container */}
+      <div ref={bubblesRef} className="fixed inset-0 pointer-events-none z-50" />
+    </div>
+  );
+};
+
+export default PhotosynthesisLab;
